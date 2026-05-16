@@ -12,6 +12,98 @@ This project implements an end-to-end pipeline for respiratory disease detection
 - **Evaluation Framework**: Comprehensive metrics including accuracy, precision, recall, F1, AUC
 - **Inference Pipeline**: Make predictions on new audio files
 
+## System Architecture
+
+The project is organized as a complete machine learning workflow: raw audio is cleaned, converted into numerical features, trained across multiple classifiers, evaluated, and then reused for prediction on unseen audio.
+
+```mermaid
+flowchart LR
+    A["Raw Audio Files<br/>(WAV / MP3)"] --> B["Audio Preprocessing<br/>Silence Removal + Chunking"]
+    B --> C["Feature Extraction<br/>MFCC + Spectral + Wavelet + Temporal"]
+    C --> D["Data Preparation<br/>Cleaning + Scaling + SMOTE + Train/Test Split"]
+
+    D --> E1["Random Forest"]
+    D --> E2["SVM"]
+    D --> E3["XGBoost"]
+    D --> E4["LSTM"]
+
+    E1 --> F["Model Evaluation<br/>Accuracy, Precision, Recall, F1, AUC"]
+    E2 --> F
+    E3 --> F
+    E4 --> F
+
+    E1 --> G["Ensemble Model<br/>RF + SVM + XGBoost"]
+    E2 --> G
+    E3 --> G
+    G --> H["Saved Artifacts<br/>Models + Scalers + Metrics + Plots"]
+
+    H --> I["Inference Pipeline"]
+    I --> J["Prediction Output<br/>HC or PD + Confidence"]
+```
+
+### Training Architecture
+
+```mermaid
+flowchart TD
+    A["train.py"] --> B["setup_directories()"]
+    B --> C{"Dataset Type"}
+    C -->|"sample"| D["create_sample_data()"]
+    C -->|"csv"| E["DataLoader / CSV Input"]
+    D --> F["DataPreparation.prepare_for_training()"]
+    E --> F
+    F --> G["Train Individual Models"]
+    G --> G1["RandomForestModel"]
+    G --> G2["SVMModel"]
+    G --> G3["XGBoostModel"]
+    F --> H{"Optional Flags"}
+    H -->|"--train-lstm"| H1["LSTMModel"]
+    H -->|"--train-ensemble"| H2["EnsembleModel"]
+    G1 --> I["ModelEvaluator"]
+    G2 --> I
+    G3 --> I
+    H1 --> I
+    H2 --> I
+    I --> J["results/models"]
+    I --> K["results/plots"]
+    I --> L["results/model_results.csv"]
+```
+
+### Inference Architecture
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant CLI as inference.py
+    participant Predictor as AudioPredictor
+    participant Extractor as AudioFeatureExtractor
+    participant Model as Saved Ensemble / Models
+    participant Output as Prediction Results
+
+    User->>CLI: Provide audio file or audio directory
+    CLI->>Predictor: Initialize with results/models
+    Predictor->>Model: Load ensemble or available individual models
+    CLI->>Predictor: predict_audio() / batch_predict()
+    Predictor->>Extractor: extract_all_features(audio)
+    Extractor-->>Predictor: Feature vector
+    Predictor->>Model: predict() + predict_proba()
+    Model-->>Predictor: Class + probability
+    Predictor-->>Output: HC / PD with confidence
+    Output-->>User: Console table and optional CSV
+```
+
+### Component Map
+
+| Layer | File / Module | Responsibility |
+|-------|---------------|----------------|
+| Audio Processing | `audio_preprocessing.py` | Removes silence and chunks audio into usable segments |
+| Feature Engineering | `feature_extraction.py` | Extracts MFCC, spectral, wavelet, and temporal features |
+| Data Pipeline | `data_preparation.py` | Loads data, cleans features, balances classes, and creates train/test splits |
+| Model Layer | `model_training.py` | Defines Random Forest, SVM, XGBoost, LSTM, Ensemble, and evaluation logic |
+| Training Orchestration | `train.py` | Runs the full training workflow and saves results |
+| Prediction Layer | `inference.py` | Loads trained models and predicts disease status for new audio |
+| Evaluation | `evaluate.py` | Generates detailed performance reports and visualizations |
+| Validation | `test_pipeline.py` | Provides pipeline testing and demo execution |
+
 ## Project Structure
 
 ```
